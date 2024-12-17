@@ -53,7 +53,7 @@ def format_shots(prompt_data):
         for j in range(k):
             prompt += "\n{}. {}".format(choices[j], data[j+1])
         prompt += "\nAnswer:"
-        prompt += data[k+1] + "\n\n"
+        prompt += data[k+1] + ".\n\n"
 
     return prompt
 
@@ -79,7 +79,7 @@ def inference(tokenizer,model,input_text,subject,prompt_data):
                 max_new_tokens = 1,
             )
         output_text = tokenizer.decode(outputs[0][length:])
-    else:       
+    else:
         outputs = model.generate(
                 ids,
                 #temperature=0.7,
@@ -116,9 +116,9 @@ if __name__ == "__main__":
     parser.add_argument('--result',type=str, default="MMLU")
     parser.add_argument('--method',type=str,default="unsure",choices=["unsure","unknown","uncertain"])
     parser.add_argument("--num_try",type=int,default="5") #only required for uncertain method
-    
+
     args = parser.parse_args()
-    
+
     tokenizer = AutoTokenizer.from_pretrained(args.model,use_fast=True,unk_token="<unk>",bos_token="<s>",eos_token="</s>",add_bos_token=False)
     model = AutoModelForCausalLM.from_pretrained(args.model,device_map='auto')
 
@@ -129,14 +129,14 @@ if __name__ == "__main__":
     data = []
     prompt = []
     uncertain_data = []
-    with open(f"../../R-Tuning-data/MMLU/{args.dataset}.json",'r') as f:
+    with open(f"../../dataset/MMLU/{args.dataset}.json",'r') as f:
         data = json.load(f)
-    
-    with open(f"../../R-Tuning-data/MMLU/MMLU_{args.prompt_domain}_prompt.json",'r') as f:
+
+    with open(f"../../dataset/MMLU/MMLU_{args.prompt_domain}_prompt.json",'r') as f:
         prompt = json.load(f)
-    
+
     # sample[0] is question. sample[1] is answer.
-    for i in tqdm(data.keys()): 
+    for i in tqdm(data.keys()):
         for sample in tqdm(data[i]):
             if args.method == "unsure":
                 output, full_input = inference(tokenizer,model,sample,i,prompt[i])
@@ -144,27 +144,27 @@ if __name__ == "__main__":
                 if sample[5] in output:
                     text += " I am sure."
                 else:
-                    text += " I am unsure."  
-                
+                    text += " I am unsure."
+
                 training_data.append({"text":text})
-        
+
             elif args.method == "unknown":
                 output, full_input = inference(tokenizer,model,sample,i,prompt[i])
                 if sample[5] in output:
                     text = f"{full_input}{sample[5]}."
                 else:
                     random_int = random.randint(0, len(FALSE_RESPONSES)-1)
-                    text = f"{full_input}{FALSE_RESPONSES[random_int]}"   
-                
+                    text = f"{full_input}{FALSE_RESPONSES[random_int]}"
+
                 training_data.append({"text":text})
-            
+
             elif args.method == "uncertain":
                 answers = []
                 occurance = {}
                 for j in range(args.num_try):
                     output, full_input = inference(tokenizer,model,sample,i,prompt[i])
                     answers.append(output)
-            
+
                 for ans in answers:
                     if ans in occurance:
                         occurance[ans] += 1
@@ -172,16 +172,16 @@ if __name__ == "__main__":
                         occurance[ans] = 1
                 freq_list = list(occurance.values())
                 answer_entropy = entropy(freq_list)
-            
+
                 uncertain_data.append((answer_entropy,f"{full_input}{sample[5]}."))
-            
+
     if args.method == "uncertain":
         uncertain_data.sort(key=lambda x: x[0])
         split_half = math.floor(len(uncertain_data)*0.5)
         for (answer_entropy,sample) in uncertain_data[:split_half]:
             text = f"{sample} Are you sure you accurately answered the question based on your internal knowledge?"
             training_data.append({"text":f"{text} I am sure."})
-            
+
         for (answer_entropy,sample) in uncertain_data[split_half:]:
             text = f"{sample} Are you sure you accurately answered the question based on your internal knowledge?"
             training_data.append({"text":f"{text} I am unsure."})

@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     training_data = []
     data = []
-    with open(f"../../R-Tuning-data/pararel/{args.dataset}.json",'r') as f:
+    with open(f"../../dataset/pararel/{args.dataset}.json",'r') as f:
         data = json.load(f)
     
     # sample[0] is question. sample[1] is answer.
