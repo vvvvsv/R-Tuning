@@ -128,7 +128,7 @@ def inference(tokenizer,model,input_text,subject,prompt_data):
     else:
         output_text = ""
 
-    return output_text, full_input, conf.item()
+    return output_text, full_input
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -148,10 +148,10 @@ if __name__ == "__main__":
     results = []
     data = {}
     prompt = {}
-    with open(f"../../dataset/MMLU/{args.dataset}.json",'r') as f:
+    with open(f"../../dataset/MMLU/MMLU_{args.domain}_test.json",'r') as f:
         data = json.load(f)
 
-    with open(f"../../dataset/MMLU/MMLU_{args.prompt_domain}_prompt.json",'r') as f:
+    with open(f"../../dataset/MMLU/MMLU_{args.domain}_prompt.json",'r') as f:
         prompt = json.load(f)
 
     for i in tqdm(data.keys()):

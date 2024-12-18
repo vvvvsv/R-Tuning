@@ -109,13 +109,14 @@ def inference(tokenizer,model,input_text,subject,prompt_data):
     else:
         output_text = ""
 
-    return output_text, full_input, conf.item()
+    return output_text, full_input
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--domain', type=str, default="ID",choices=["ID","OOD"])
     parser.add_argument('--model', type=str, required=True)
     parser.add_argument('--result',type=str, default="MMLU")
+    parser.add_argument('--dataset', type=str, default="MMLU_ID_train")
 
     args = parser.parse_args()
 
@@ -129,10 +130,10 @@ if __name__ == "__main__":
     results = []
     data = {}
     prompt = {}
-    with open(f"../../dataset/MMLU/{args.dataset}.json",'r') as f:
+    with open(f"../../dataset/MMLU/MMLU_{args.domain}_test.json",'r') as f:
         data = json.load(f)
 
-    with open(f"../../dataset/MMLU/MMLU_{args.prompt_domain}_prompt.json",'r') as f:
+    with open(f"../../dataset/MMLU/MMLU_{args.domain}_prompt.json",'r') as f:
         prompt = json.load(f)
 
     for i in tqdm(data.keys()):

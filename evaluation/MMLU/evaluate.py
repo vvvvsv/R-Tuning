@@ -56,7 +56,7 @@ def inference(tokenizer,model,input_text,subject,prompt_data):
     full_input = gen_prompt(input_text,subject,prompt_data)
     inputs = tokenizer(full_input,return_tensors="pt").to(0)
     ids = inputs['input_ids']
-    length = len(ids[0])     
+    length = len(ids[0])
     outputs = model.generate(
                 ids,
                 max_new_tokens = 1,
@@ -82,7 +82,7 @@ def inference(tokenizer,model,input_text,subject,prompt_data):
     )
     output_text = {0: "A", 1: "B", 2: "C", 3: "D"}[np.argmax(probs)]
     conf = np.max(probs)
-        
+
     return output_text, full_input, conf.item()
 
 def checksure(input_text):
@@ -101,7 +101,7 @@ def checksure(input_text):
     sure_prob = pt[SURE[0]]
     unsure_prob = pt[UNSURE[0]]
     sure_prob = sure_prob/(sure_prob+unsure_prob)   #normalization
-       
+
     return sure_prob.item()
 
 if __name__ == "__main__":
@@ -109,12 +109,12 @@ if __name__ == "__main__":
     parser.add_argument('--domain', type=str, default="ID",choices=["ID","OOD"])
     parser.add_argument('--model', type=str, required=True)
     parser.add_argument('--result',type=str, default="MMLU")
-    
+
     args = parser.parse_args()
-    
+
     tokenizer = AutoTokenizer.from_pretrained(args.model,use_fast=True,unk_token="<unk>",bos_token="<s>",eos_token="</s>",add_bos_token=False)
     model = AutoModelForCausalLM.from_pretrained(args.model,device_map='auto')
-    
+
     STOP.append(tokenizer(".")['input_ids'][0])  #stop decoding when seeing '.'
     SURE.append(tokenizer("sure")['input_ids'][0])
     UNSURE.append(tokenizer("unsure")['input_ids'][0])
@@ -122,26 +122,26 @@ if __name__ == "__main__":
     results = []
     data = {}
     prompt = {}
-    with open(f"../../R-Tuning-data/MMLU/MMLU_{args.domain}_test.json",'r') as f:
+    with open(f"../../dataset/MMLU/MMLU_{args.domain}_test.json",'r') as f:
         data = json.load(f)
-    
-    with open(f"../../R-Tuning-data/MMLU/MMLU_{args.domain}_prompt",'r') as f:
+
+    with open(f"../../dataset/MMLU/MMLU_{args.domain}_prompt.json",'r') as f:
         prompt = json.load(f)
-        
-    for i in tqdm(data.keys()):  
+
+    for i in tqdm(data.keys()):
         prompt_data = prompt[i]
         type_name = i
         for instance in tqdm(data[i]):
             output,full_input, predict_conf = inference(tokenizer,model,instance,i,prompt_data)
             sure_prob = checksure(f"{full_input}{output}")
-            
+
             if instance[1] in output:
                 results.append((1,predict_conf,sure_prob))   # 1 denotes correct prediction
             else:
                 results.append((0,predict_conf,sure_prob))   # 0 denotes wrong prediction
-            
+
         torch.cuda.empty_cache()
-        
+
     os.makedirs("results",exist_ok=True)
     with open(f"results/{args.result}_{args.domain}.json",'w') as f:
         json.dump(results,f)
