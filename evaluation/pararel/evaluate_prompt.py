@@ -13,9 +13,37 @@ STOP = []
 SURE = []
 UNSURE = []
 
+UNKNOWN_RESPONSES = [
+    "unknown",
+    "not known",
+    "n't known",
+    "uncertain",
+    "not certain",
+    "n't certain",
+    "unclear",
+    "not clear",
+    "n't clear",
+    "unsure",
+    "not sure",
+    "n't sure",
+    "do not know",
+    "don't know",
+    "t know"
+    "no definitive",
+    "debate",
+    "no concrete",
+    "impossible",
+    "no known",
+    "no public information available",
+    "no scientific evidence",
+    "no right answer",
+    "impossible",
+    "difficult",
+]
+
 def inference(input_text):
 
-    full_input = f"Question: {input_text} Answer:"
+    full_input = f'Answer the following question, and if you don’t know the answer, only reply with "I don’t know":Question: {input_text} Answer:'
     inputs = tokenizer(full_input,return_tensors="pt").to(0)
     ids = inputs['input_ids']
     outputs = model.generate(
@@ -49,25 +77,6 @@ def inference(input_text):
 
     return output_text, full_input, np.power(product.item(),(1/count)).item()
 
-def checksure(input_text):
-    full_input = f"{input_text}. Are you sure you accurately answered the question based on your internal knowledge? I am"
-    inputs = tokenizer(full_input,return_tensors="pt").to(0)
-    ids = inputs['input_ids']
-    outputs = model.generate(
-                ids,
-                max_new_tokens = 1,
-                output_scores = True,
-                return_dict_in_generate=True
-            )
-    logits = outputs['scores']
-     #greedy decoding and calculate the confidence of sure and unsure
-    pt = torch.softmax(torch.Tensor(logits[0][0]),dim=0)
-    sure_prob = pt[SURE[0]]
-    unsure_prob = pt[UNSURE[0]]
-    sure_prob = sure_prob/(sure_prob+unsure_prob)   #normalization
-
-    return sure_prob.item()
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--model', type=str, required=True)
@@ -94,19 +103,24 @@ if __name__ == "__main__":
     # sample[0] is question. sample[1] is answer.
     for sample in tqdm(data):
         output, full_input, predict_conf = inference(sample[0])
-        sure_prob = checksure(f"{full_input} {output}")
         # sure_prob > 0.5 -> I am sure. Otherwise I am unsure
         if sample[2] not in results_categories:
             results_categories[sample[2]] = {"total": 0, "correct": 0}
         global_total += 1
         results_categories[sample[2]]['total'] += 1
 
+        result = 0 # 0 denotes wrong prediction
         if sample[1] in output:
             global_correct += 1
             results_categories[sample[2]]['correct'] += 1
-            results.append((1,predict_conf,sure_prob, sample, output))   # 1 denotes correct prediction
+            result = 1 # 1 denotes correct prediction
         else:
-            results.append((0,predict_conf,sure_prob, sample, output))   # 0 denotes wrong prediction
+            for ans in UNKNOWN_RESPONSES:
+                if ans in output:
+                    result = -1 # -1 denotes refusal
+                    break
+
+        results.append((result, sample, output))
 
         torch.cuda.empty_cache()
 
